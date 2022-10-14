@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "cerrno": "c",
+    "signal.h": "c",
+    "thpool.h": "c",
+    "wait.h": "c"
+  }
+}
