@@ -63,7 +63,7 @@ int main(int argc, char *argv[]){
       break;
     }
 
-    readBuf[numRead]=='\0';
+    readBuf[numRead]='\0';
     printf("[%d readed]: %s\n", numRead,readBuf);
   }
 }

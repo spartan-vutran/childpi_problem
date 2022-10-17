@@ -17,3 +17,4 @@ This project is made for only learning purpose.
     + First, open the TCP socket connection and try to handle single request from the client.
     + Then, detect the critical section. Use techniques to handle multi-threading problems.
 
+## 2. The design
