@@ -4,6 +4,7 @@
     "childpi_server.h": "c",
     "string.h": "c",
     "unistd.h": "c",
-    "typeinfo": "c"
+    "typeinfo": "c",
+    "type_traits": "c"
   }
 }

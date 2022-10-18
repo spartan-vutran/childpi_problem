@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 
 void init_app(){
   app = malloc(sizeof(struct childpi_app));
@@ -19,6 +20,7 @@ void destroy_app(){
 
 static int poll_ready(){
   int flag = 0;
+  int first = 1;
 
   time_t start = time(NULL);  
   while ((time(NULL) - start)<TIME_OUT) {  //Time out
@@ -33,6 +35,10 @@ static int poll_ready(){
       return 1;
     }
 
+    if(first){
+      printf("Waitting for other users...\n");
+      first--;
+    }
     fflush(stdout);
     sleep(POLLING_TIME);
 
@@ -40,6 +46,35 @@ static int poll_ready(){
 
   return -1;
 }
+
+
+static int polling_winner(char * name, int *sum){
+  int flag = 0,first =1;
+  time_t start = time(NULL);
+
+  while((time(NULL) - start)< TIME_OUT){
+    flag = get_winner(name, sum);
+
+    if(flag == -1){
+      return -1;
+    }
+
+    if(flag == 1){
+      return 1;
+    }
+
+    if(first){
+      printf(" users...\n");
+      first--;
+    }
+    fflush(stdout);
+    sleep(POLLING_TIME);
+  }
+
+  return -1;
+}
+
+
 
 
 static void print_status(){
@@ -90,7 +125,6 @@ void play(){
         break;
       
       case WAITTING:
-        printf("Waitting for other users...\n");
         flag = poll_ready();
 
         // Time out or error
@@ -102,8 +136,6 @@ void play(){
 
         app->state = PLAYING;
         break;
-
-
       case PLAYING:
         // Print option
         print_status();
@@ -123,7 +155,6 @@ void play(){
           int pis[100];
           int length = 0;
           int flag = get_pi(app->user_name, &pis[0], &length,&app->user_sum, &app->user_turn);
-
           if(flag == -1){
             printf("Error happened while get pi from the server\n");
             exit = 1;
@@ -131,7 +162,14 @@ void play(){
           }
 
           print_gainedpi(pis, length);
-          
+
+          //Check if the user has got no turn
+          if(app->user_turn >= app->max_turn){
+            printf("You has got no turn. Waiting for the report...\n");
+            // TODO: Polling if the game has ended and set status
+            app->state = ENDING;
+          }
+          break;
         }
 
         if(option == 2){
@@ -141,6 +179,39 @@ void play(){
 
         
         printf("Invalid option, please try again\n");
+        break;
+
+      case ENDING:
+        // TODO: Replace the code to just get out the report
+        printf("The game was ended.\n");
+        print_status();
+        
+        //Print out the winner
+        char name[MAX_CHAR];
+        int sum = 0;
+        int flag = polling_winner(name, &sum);
+
+        if(sum > (app->user_sum)){
+          printf("The winner is %s with %d points which is as higher %d than that of you.\n", name,sum,sum-app->user_sum );
+          exit = 1;
+          break;
+        }
+          
+        
+        if(sum == (app->user_sum)){
+          if(!strcmp(name, app->user_name)){
+            printf("You are the winner with %d points. Congratulation!!!\n", app->user_sum);
+            exit = 1;
+            break;
+          }
+
+          printf("You are the winner but ranked equally with %s. Both of you got %d points. Congratulation!!!\n", name, app->user_sum);
+          exit = 1;
+          break;
+        }
+
+        printf("Something goes wrong. App exit...\n");
+        exit = 1;
         break;
 
       default:
@@ -153,5 +224,6 @@ void play(){
       break;
     }
   }
+
   destroy_app();
 }

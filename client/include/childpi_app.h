@@ -16,7 +16,7 @@
 #define NOT_SIGNIN 0
 #define WAITTING 1
 #define PLAYING 2
-
+#define ENDING 3
 // Processing
 #define POLLING_TIME 5
 #define TIME_OUT 20
@@ -36,6 +36,5 @@ struct childpi_app * app;
 void init_app();
 void destroy_app();
 void play();
-
 
 #endif

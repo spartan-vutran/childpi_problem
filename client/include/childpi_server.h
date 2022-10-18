@@ -5,6 +5,8 @@
 
 // Command definitions
 #define CHECK_ACCOUNT 0
+#define TIME_OUT 20
+#define RETRY 5
 
 struct childpi_server{
   char server_ip[MAX_CHAR];
@@ -37,5 +39,9 @@ int check_isready();
 //  1: OK
 int get_pi(const char * user_name, int* pis, int* length, int* user_sum, int* user_turn);
 
-
+// Status:
+// -1: error
+//  0: No
+//  1: OK
+int get_winner(char*name, int*sum);
 #endif
