@@ -46,8 +46,6 @@
 
 // #define TIME_TURN 700
 
-
-
 // Data definition on server
 struct child{
   int gained_pis[TURN*BAG_SIZE];
@@ -136,7 +134,6 @@ void getPi (struct child * child_t){
   if(store.pis[index] != EMPTY){
       result = store.pis[index];
       store.pis[index] = EMPTY;
-      
   }
   pthread_mutex_unlock(&store.mutex[imutex]);  
   
@@ -209,7 +206,7 @@ static void collection_test(void *arg){
     pthread_mutex_unlock(&start_lock);
 
     // Get pi 
-    time_t start = time(NULL);  
+    
     int  bag_count=0;
     while (bag_count<store.bag_size) {      // Set time out
       getPi(this_child);    
@@ -281,10 +278,57 @@ void prepare_report(){
 
 int main(int argc, char *argv[]){
 
-  store_init(PI_NUM,RANGE_VALUE,SECTION_NUM,TURN,BAG_SIZE,CHILD_NUM);
-  threadpool thpool = thpool_init(store.max_child);
-  int clt_cnt = 0;
-  int *args = malloc(2*sizeof(int));
+  // store_init(PI_NUM,RANGE_VALUE,SECTION_NUM,TURN,BAG_SIZE,CHILD_NUM);
+  // threadpool thpool = thpool_init(store.max_child);
+  // int clt_cnt = 0;
+  // int *args = malloc(2*sizeof(int));
+  
+
+  // // Init listener
+  // int ffd = inetListen(SERVICE, 10, NULL), cfd = 0;
+  // if (ffd == -1){
+  //   printf("Could not create socket(%s)", strerror(errno));
+  //   exit(-1);
+  // }
+
+  // while (1){
+  //   cfd = accept(ffd, NULL, NULL);
+  //   if (cfd == -1){
+  //     printf("Failure in accept(%s)\n", strerror(errno));
+  //     exit(-1);
+  //   }
+
+  //   args[0]=cfd;
+  //   args[1] = clt_cnt;
+
+  //   clt_cnt ++;
+  //   if (clt_cnt > store.max_child){
+  //     pthread_mutex_lock(&start_lock);
+  //     is_full_slot = 1;
+  //     printf("is_full_slot: %d\n", is_full_slot);
+  //     pthread_mutex_unlock(&start_lock);
+  //     pthread_cond_broadcast(&full);
+  //     break;
+  //   } 
+  //   else {
+  //     thpool_add_work(thpool, &collection_test, (void*)args);
+  //   }
+  // }
+
+  // close(ffd);
+  // prepare_report();
+  // thpool_wait(thpool);
+
+
+  // // Release resources
+  // store_destroy();
+  // free(args);
+  // if (pthread_cond_destroy(&full) != 0) {                                       
+  //   perror("pthread_cond_destroy() error");                                     
+  //   exit(2);                                                                    
+  // }  
+
+
   
 
   // Init listener
@@ -301,33 +345,24 @@ int main(int argc, char *argv[]){
       exit(-1);
     }
 
-    args[0]=cfd;
-    args[1] = clt_cnt;
+    char buf[MAX_CHAR];
+    int numRead = read(cfd,buf,MAX_CHAR);
 
-    clt_cnt ++;
-    if (clt_cnt > store.max_child){
-      pthread_mutex_lock(&start_lock);
-      is_full_slot = 1;
-      printf("is_full_slot: %d\n", is_full_slot);
-      pthread_mutex_unlock(&start_lock);
-      pthread_cond_broadcast(&full);
-      break;
-    } 
-    else {
-      thpool_add_work(thpool, &collection_test, (void*)args);
+    if(numRead == -1){
+      printf("Failure in read(%s)\n", strerror(errno));
+      exit(-1);
     }
+
+    if(numRead == 0){
+      close(cfd);
+      break;
+    }
+
+    buf[numRead]='\0';
+    printf("%s\n",buf);
+    close(cfd);
+    break;
   }
 
   close(ffd);
-  prepare_report();
-  thpool_wait(thpool);
-
-
-  // Release resources
-  store_destroy();
-  free(args);
-  if (pthread_cond_destroy(&full) != 0) {                                       
-    perror("pthread_cond_destroy() error");                                     
-    exit(2);                                                                    
-  }  
 }
