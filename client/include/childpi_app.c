@@ -18,14 +18,15 @@ void destroy_app(){
 }
 
 
-static int poll_ready(){
+static int poll_status(const int is_ending){
   int flag = 0;
   int first = 1;
 
   time_t start = time(NULL);  
   while ((time(NULL) - start)<TIME_OUT) {  //Time out
     
-    flag = check_isready();
+    
+    flag =  check_srvstate(is_ending);
 
     if(flag == -1){
       return -1;
@@ -36,7 +37,7 @@ static int poll_ready(){
     }
 
     if(first){
-      printf("Waitting for other users...\n");
+      (is_ending==0)?printf("Waitting for other users...\n"):printf("Waiting the end of the game...");
       first--;
     }
     fflush(stdout);
@@ -48,31 +49,6 @@ static int poll_ready(){
 }
 
 
-static int polling_winner(char * name, int *sum){
-  int flag = 0,first =1;
-  time_t start = time(NULL);
-
-  while((time(NULL) - start)< TIME_OUT){
-    flag = get_winner(name, sum);
-
-    if(flag == -1){
-      return -1;
-    }
-
-    if(flag == 1){
-      return 1;
-    }
-
-    if(first){
-      printf(" users...\n");
-      first--;
-    }
-    fflush(stdout);
-    sleep(POLLING_TIME);
-  }
-
-  return -1;
-}
 
 
 
@@ -125,7 +101,7 @@ void play(){
         break;
       
       case WAITTING:
-        flag = poll_ready();
+        flag = poll_status(0);
 
         // Time out or error
         if(flag == -1){
@@ -166,7 +142,12 @@ void play(){
           //Check if the user has got no turn
           if(app->user_turn >= app->max_turn){
             printf("You has got no turn. Waiting for the report...\n");
-            // TODO: Polling if the game has ended and set status
+            flag = poll_status(1);
+            if(flag == -1){
+              printf("Error happened while polling the ending of the server\n");
+              exit = 1;
+              break;
+            }
             app->state = ENDING;
           }
           break;
@@ -182,14 +163,13 @@ void play(){
         break;
 
       case ENDING:
-        // TODO: Replace the code to just get out the report
         printf("The game was ended.\n");
         print_status();
         
         //Print out the winner
         char name[MAX_CHAR];
         int sum = 0;
-        int flag = polling_winner(name, &sum);
+        int flag = get_winner(name,MAX_CHAR,&sum);
 
         if(sum > (app->user_sum)){
           printf("The winner is %s with %d points which is as higher %d than that of you.\n", name,sum,sum-app->user_sum );

@@ -32,7 +32,8 @@ int sign_in(const char* user_name,int* max_turn, int *user_sum, int * user_turn)
 // -1: error
 //  0: Waitting
 //  1: Playing
-int check_isready();
+int check_srvstate(const int isending);
+
 
 // Status:
 // -1: error
@@ -43,5 +44,6 @@ int get_pi(const char * user_name, int* pis, int* length, int* user_sum, int* us
 // -1: error
 //  0: No
 //  1: OK
-int get_winner(char*name, int*sum);
+int get_winner(char* winner, const int max_length, int* sum);
+
 #endif

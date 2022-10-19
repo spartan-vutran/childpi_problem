@@ -48,10 +48,7 @@ void destroy_server_stub(){
 int sign_in_jparser(const char* json,int* status ,int * sum, int*user_turn, int *max_turn){
   int jstatus = -1;
   cJSON * json_parser = cJSON_Parse(json);
-  cJSON * status_cJ = NULL;
-  cJSON * sum_cJ = NULL;
-  cJSON * user_turn_cJ = NULL;
-  cJSON * max_turn_cJ = NULL;
+  cJSON * temp_cJ = NULL;
 
   if(json_parser == NULL){
     const char *error_ptr = cJSON_GetErrorPtr();
@@ -62,36 +59,36 @@ int sign_in_jparser(const char* json,int* status ,int * sum, int*user_turn, int 
   }
 
   // Field "status"
-  status_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "status");
-  if(!cJSON_IsNumber(status_cJ)){
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "status");
+  if(!cJSON_IsNumber(temp_cJ)){
     fprintf(stderr, "[SignIn] The status field is not a number\n");
     goto end;
   }
-  *status = status_cJ->valueint;
+  *status = temp_cJ->valueint;
 
   // Field "sum"
-  sum_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "sum");
-  if(!cJSON_IsNumber(sum_cJ)){
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "sum");
+  if(!cJSON_IsNumber(temp_cJ)){
     fprintf(stderr, "[SignIn] The sum field is not a number\n");
     goto end;
   }
-  *sum = sum_cJ->valueint;
+  *sum = temp_cJ->valueint;
 
   // Field "sum"
-  user_turn_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "user_turn");
-  if(!cJSON_IsNumber(user_turn_cJ)){
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "user_turn");
+  if(!cJSON_IsNumber(temp_cJ)){
     fprintf(stderr, "[SignIn] The user_turn field is not a number\n");
     goto end;
   }
-  *user_turn = user_turn_cJ->valueint;
+  *user_turn = temp_cJ->valueint;
 
   // Field "sum"
-  max_turn_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "max_turn");
-  if(!cJSON_IsNumber(max_turn_cJ)){
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "max_turn");
+  if(!cJSON_IsNumber(temp_cJ)){
     fprintf(stderr, "[SignIn] The status field is not a number\n");
     goto end;
   }
-  *max_turn = max_turn_cJ->valueint;
+  *max_turn = temp_cJ->valueint;
   jstatus = 1;
 
   end:
@@ -152,10 +149,14 @@ int sign_in(const char* user_name,int* max_turn, int *user_sum, int * user_turn)
 
 
 
-int check_isready_jparser(const char* json,int* status){
+/*
+{
+  status: -1 | 0 | 1;
+}*/
+static int check_srvstate_jparser(const char* json,int* status){
   int jstatus = -1;
   cJSON * json_parser = cJSON_Parse(json);
-  cJSON * status_cJ = NULL;
+  cJSON * temp_cJ = NULL;
 
   if(json_parser == NULL){
     const char *error_ptr = cJSON_GetErrorPtr();
@@ -166,12 +167,12 @@ int check_isready_jparser(const char* json,int* status){
   }
 
   // Field "status"
-  status_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "status");
-  if(!cJSON_IsNumber(status_cJ)){
-    fprintf(stderr, "[IsReady] The status field is not a number\n");
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "status");
+  if(!cJSON_IsNumber(temp_cJ)){
+    fprintf(stderr, "[Check_srvstate] The status field is not a number\n");
     goto end;
   }
-  *status = status_cJ->valueint;
+  *status = temp_cJ->valueint;
   jstatus = 1;
 
   end:
@@ -180,68 +181,208 @@ int check_isready_jparser(const char* json,int* status){
 }
 
    
-// Status:
-// -1: error
-//  0: Waitting
-//  1: Playing
-int check_isready(){
-  //TODO: SEND AND RECEIVE PACKET FROM THE SERVER 
+/*
+{
+  status: -1 | 0 | 1;
+}*/
+int check_srvstate(const int isending){
  
-  // FIXME: Mock buffer
+  // MOCK: Mock send and check ready to server
   char buf[MAX_CHAR];
   snprintf(buf, MAX_CHAR,"{\"status\": %d}", 1);
 
   int status = 0, flag =0;
- 
-  flag = check_isready_jparser(buf, &status);
+  flag = check_srvstate_jparser(buf, &status);
   if(flag == -1){
     fprintf(stderr,"Error while parsing check ready packet\n");
+    return -1;
+  }
+  
+  return status;
+}
+
+
+/*
+  {
+    status: -1 | 1;
+    pis: [1,2,3,4,5,6];
+    length: 6;
+    user_sum: 150;
+    user_turn: 3
+  }
+*/
+static int get_pi_jparser(const char* json,int * status ,int* pis, int* length, int* user_sum,int* user_turn){
+  int jstatus = -1;
+  cJSON * json_parser = cJSON_Parse(json);
+  cJSON * temp_cJ = NULL;
+
+  if(json_parser == NULL){
+    const char *error_ptr = cJSON_GetErrorPtr();
+    if (error_ptr != NULL){
+        fprintf(stderr, "Error before: %s\n", error_ptr);
+    }
+    goto end;
+  }
+
+  // Field "status"
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "status");
+  if(!cJSON_IsNumber(temp_cJ)){
+    fprintf(stderr, "[GetPi] The status field is not a number\n");
+    goto end;
+  }
+  *status = temp_cJ->valueint;
+
+  // Field "pis"
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "pis");
+  cJSON * element_cJ = NULL;
+  *length = 0;
+  cJSON_ArrayForEach(element_cJ, temp_cJ){
+    if(!cJSON_IsNumber(element_cJ)){
+      fprintf(stderr, "[GetPi] The element of pis field is not a number\n");
+      goto end;
+    }
+  
+    pis[*length] = element_cJ->valueint;
+    (*length)++;
+  }
+  
+
+  // Field "user_sum"
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "user_sum");
+  if(!cJSON_IsNumber(temp_cJ)){
+    fprintf(stderr, "[IsReady] The user_sum field is not a number\n");
+    goto end;
+  }
+  *user_sum = temp_cJ->valueint;
+
+  // Field "user_sum"
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "user_turn");
+  if(!cJSON_IsNumber(temp_cJ)){
+    fprintf(stderr, "[IsReady] The user_turn field is not a number\n");
+    goto end;
+  }
+  *user_turn = temp_cJ->valueint;
+  jstatus = 1;
+
+  end:
+  cJSON_Delete(json_parser);
+  return jstatus;
+}
+
+
+/*
+  {
+    status: -1 | 1;
+    pis: [1,2,3,4,5,6];
+    length: 6;
+    user_sum: 150;
+    user_turn: 3
+  }
+*/
+int get_pi(const char * user_name, int* pis, int* length, int* user_sum, int* user_turn){
+  
+  char buf[MAX_CHAR];
+
+  // MOCK: Mock the result got from the server
+  snprintf(buf,MAX_CHAR,"{\"status\": 1,\"pis\": [1,2,3,4,5,6],\"length\": 6,\"user_sum\": 250,\"user_turn\": 5}"); 
+
+  int status = 0;
+  int flag = get_pi_jparser(buf, &status,&pis[0],length, user_sum,user_turn);
+  
+
+  if(flag == -1){
+    fprintf(stderr,"Error happended while parsing get_pi json\n");
     return -1;
   }
 
   return status;
 }
 
-int get_pi(const char * user_name, int* pis, int* length, int* user_sum, int* user_turn){
-  *length = 10;
-  int max_turn = 5;
-  
-  for(int i=0;i < *length;i++){
-    pis[i] = i;
-    *user_sum+= i;
-  }
-
-  int turn = *user_turn;
-  
-  *user_turn= (turn>=max_turn)?turn:++turn; 
-  return 1;
-}
 
 
 
 
 
-// Status:
-// -1: error
-//  0: Game is still not ended
-//  1: OK
-
-/* Reponse from the server
+/* Response from the server
 {
   status:
   name: --if status ok
   sum: -- if status ok
 }
 */
+static int get_winner_jparser(const char* json, int* status, char*name, const int max_length, int* sum){
+  int jstatus = -1;
+  cJSON * json_parser = cJSON_Parse(json);
+  cJSON * temp_cJ = NULL;
 
-int x = 1;
-int get_winner(char* winner,int* sum){
-  //TODO: Send to server and check if there is report
-  if(x-- == 1)
-    return 0;
+  if(json_parser == NULL){
+    const char *error_ptr = cJSON_GetErrorPtr();
+    if (error_ptr != NULL){
+        fprintf(stderr, "Error before: %s\n", error_ptr);
+    }
+    goto end;
+  }
+
+  // Field "status"
+  temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "status");
+  if(!cJSON_IsNumber(temp_cJ)){
+    fprintf(stderr, "[GetWinner] The status field is not a number\n");
+    goto end;
+  }
+  *status = temp_cJ->valueint;
+
   
-  char name[MAX_CHAR];
-  snprintf(name,MAX_CHAR,"assasin123");
-  *sum = 350;
-  return 1;
+  if (*status == 1){
+    // Field "name"
+    temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "name");
+    if (!cJSON_IsString(temp_cJ) || (temp_cJ->valuestring == NULL)){
+      fprintf(stderr, "[GetWinner] The name field is not a string\n");
+      goto end;
+    }
+    strncpy(name, temp_cJ->valuestring,max_length);
+
+
+    // Field "sum"
+    temp_cJ = cJSON_GetObjectItemCaseSensitive(json_parser, "sum");
+    if(!cJSON_IsNumber(temp_cJ)){
+      fprintf(stderr, "[GetWinner] The sum field is not a number\n");
+      goto end;
+    }
+    *sum = temp_cJ->valueint;
+  }
+  
+  jstatus = 1;
+
+  end:
+  cJSON_Delete(json_parser);
+  return jstatus;
 }
+
+
+/* Response from the server
+{
+  status: 1 | -1
+  name: --if status ok
+  sum: -- if status ok
+}
+*/
+int get_winner(char* winner, const int max_length, int* sum){
+  //MOCK: Sending to the server later
+  char buf[MAX_CHAR];
+  snprintf(buf,MAX_CHAR,"{\"status\": %d,\"name\": \"%s\", \"sum\": %d}", 1,"Assasin123",350);
+  
+  
+  //Parsing and get the result
+  int status = 0;
+  int flag = get_winner_jparser(buf, &status, winner, max_length, sum );
+
+  if(flag == -1){
+    fprintf(stderr,"Error happended while parsing get winner json\n");
+    return -1;
+  }
+  
+  return status;
+}
+
+
+
