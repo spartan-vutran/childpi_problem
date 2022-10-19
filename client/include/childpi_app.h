@@ -3,6 +3,7 @@
 
 
 #include <stdint.h>
+#include <pthread.h>
 
 // Network configuration
 #define SERVICE "50003"
@@ -17,9 +18,10 @@
 #define WAITTING 1
 #define PLAYING 2
 #define ENDING 3
+#define TIME_OUT_ERROR 4
 // Processing
-#define POLLING_TIME 5
-#define TIME_OUT 20
+#define POLLING_TIME 2
+#define TIME_OUT 40
 
 // Sending parser
 struct childpi_app{
@@ -28,6 +30,10 @@ struct childpi_app{
   uint32_t user_sum;
   uint32_t user_turn;
   uint32_t max_turn;
+
+  //Mutex
+  pthread_mutex_t status_mutex;
+  pthread_cond_t is_end;
 };
 
 struct childpi_app * app;

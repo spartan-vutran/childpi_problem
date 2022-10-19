@@ -185,20 +185,31 @@ static int check_srvstate_jparser(const char* json,int* status){
 {
   status: -1 | 0 | 1;
 }*/
+int x = 10;
 int check_srvstate(const int isending){
  
   // MOCK: Mock send and check ready to server
-  char buf[MAX_CHAR];
-  snprintf(buf, MAX_CHAR,"{\"status\": %d}", 1);
+  // char buf[MAX_CHAR];
+  // snprintf(buf, MAX_CHAR,"{\"status\": %d}", 1);
 
-  int status = 0, flag =0;
-  flag = check_srvstate_jparser(buf, &status);
-  if(flag == -1){
-    fprintf(stderr,"Error while parsing check ready packet\n");
-    return -1;
+  // int status = 0, flag =0;
+  // flag = check_srvstate_jparser(buf, &status);
+  // if(flag == -1){
+  //   fprintf(stderr,"Error while parsing check ready packet\n");
+  //   return -1;
+  // }
+
+  // return status;
+  
+  if(!isending){
+    return 1;
   }
   
-  return status;
+  if(x--==0){
+    return -1;
+  }
+
+  return 0;
 }
 
 
