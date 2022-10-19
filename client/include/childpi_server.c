@@ -20,24 +20,6 @@ void destroy_server_stub(){
 }
 
 
-
-
-
-/* Sample:
-  Sender:
-    {
-      request: ; 
-      arg...
-    }
-  
-  Receiver:
-    { 
-      response: ;
-      result...
-    }
-*/
-
-
 //   Response:
 //   { 
 //     status: ;

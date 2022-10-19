@@ -30,7 +30,6 @@ int sign_in(const char* user_name,int* max_turn, int *user_sum, int * user_turn)
 // -1: error
 //  0: Waitting
 //  1: Playing
-
 int check_srvstate(const int isending);
 
 

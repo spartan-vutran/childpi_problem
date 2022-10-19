@@ -5,7 +5,8 @@
     "string.h": "c",
     "unistd.h": "c",
     "typeinfo": "c",
-    "type_traits": "c"
+    "type_traits": "c",
+    "errno.h": "c"
   },
   "todohighlight.keywords": [
     
