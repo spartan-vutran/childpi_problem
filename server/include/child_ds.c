@@ -84,6 +84,7 @@ child_t* childds_add(const char*name,const int length){
   a_child->count = 0;
   a_child->turn = 0;
   a_child->sum = 0;
+  a_child->state = NOT_SIGNED ;
 
   //Increase count of ds child
   (ds->count)++;

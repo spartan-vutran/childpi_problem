@@ -6,6 +6,11 @@
 #define DEFAULT_PI 100
 #define DEFAULT_CHILD 10
 
+//Child state
+#define NOT_SIGNED 0
+#define SIGNED_IN 1
+
+
 struct child{
   char * name;
   int * pis;
@@ -13,6 +18,7 @@ struct child{
   int count;
   int turn;
   int sum;
+  int state;
 };
 
 typedef struct child child_t;

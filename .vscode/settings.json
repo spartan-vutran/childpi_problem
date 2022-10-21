@@ -6,7 +6,9 @@
     "unistd.h": "c",
     "typeinfo": "c",
     "type_traits": "c",
-    "errno.h": "c"
+    "errno.h": "c",
+    "thpool.h": "c",
+    "pthread.h": "c"
   },
   "todohighlight.keywords": [
     
