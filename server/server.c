@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "./include/cJSON.h"
+#include <time.h>
 
 // ERROR library
 #include <errno.h>
@@ -25,18 +26,56 @@
 // #define MAX_TURN 5
 
 // Store definition
-#define PI_NUM 1000
+#define PI_NUM 200
 #define RANGE_VALUE 10
 #define TURN 5
 #define BAG_SIZE 50
 #define CHILD_NUM 5
 #define SECTION_NUM 10
+#define GET_PI_TIME_OUT 0.05
 
 // COMMAND DEFINITION
 #define SIGN_IN 1
 #define CHECK_SRVSTATE 2
 #define GET_PI 3 
 #define GET_WINNER 4
+
+// PI VALUE
+#define EMPTY -1
+
+
+// =============================Miscellaneous=================================
+
+
+
+int rand_value(int from, int to){
+  //TODO: Need to srand()
+  return rand()%(to-from+1) + from;
+}
+
+
+void print_iarray(char* buf,int max_size, const int*sequence , int from ,int to){
+  memset(buf,0,max_size);
+  char* result = malloc(max_size*sizeof(char));
+  char* subresult = malloc(max_size*sizeof(char));
+  char *temp;
+
+  if(sequence == NULL || from >to){
+    return;
+  }
+
+  snprintf(result, max_size, "%d", sequence[from]);
+  for(int i = from+1;i<=to;i++){
+    snprintf(subresult,max_size,"%s,%d",result,sequence[i]);
+    temp = subresult;
+    subresult = result;
+    result=temp;
+  }
+  
+  memcpy(buf,result,max_size);
+  free(result);
+  free(subresult);
+}
 
 
 // =============================Data structure=================================
@@ -68,21 +107,51 @@ void store_init(int num_pi, int range,int section_num, int turn, int bag_size, i
   store.section_num=section_num;
   
   // Mutex init
-  pthread_mutex_init(&start_lock, NULL);
-  // pthread_cond_init(&full, NULL);
-  // pthread_cond_init(&is_end, NULL);
   store.mutex = malloc(sizeof(pthread_mutex_t)*store.section_num);
 
   for(int i=0; i<store.section_num; i++){
     pthread_mutex_init(&(store.mutex[i]), NULL);
   }
+
+  // Init pi
+  store.num_pi = num_pi;
+  store.pis = malloc(sizeof(int)*num_pi);
+  for(int i=0;i<store.num_pi;i++){
+    store.pis[i]= rand_value(1,range);
+  }
+
+  //Init random
+  time_t t;
+  srand((unsigned) time(&t));
+
+  //Init child
+  store.max_child = max_child;
+}
+
+int getPi (){
+  int result = 0, index = 0, imutex=0;
+  time_t start = time(NULL);
+
+  while(result == 0 && ((time(NULL)-start)< GET_PI_TIME_OUT)){
+    index = rand_value(0, store.num_pi-1);
+    imutex = ((index*store.section_num)/store.num_pi);
+
+    pthread_mutex_lock(&(store.mutex[imutex]));  
+    if(store.pis[index] != EMPTY){
+        result = store.pis[index];
+        store.pis[index] = EMPTY;
+    }
+    pthread_mutex_unlock(&store.mutex[imutex]);
+    
+  }
+  //Update child status  
+  return result;
 }
 
 
 void print_child(const child_t* achild){
   printf("-------Child %s--------\n", achild->name);
   printf("Gained pis: ");
-  printf("%d\n", achild->count);
   if(achild->count>0){
     printf("%d",(achild->pis)[0]);
   }
@@ -94,15 +163,6 @@ void print_child(const child_t* achild){
 }
 
 
-
-/*  Input
-{
-    command: 1,
-    name: ""
-}
-*/
-
-
 // =============================Server operation=================================
 
 /*  Output
@@ -111,6 +171,13 @@ void print_child(const child_t* achild){
   sum: ;  //If is old user
   user_turn: ; 
   max_turn: 
+}
+*/
+
+/*  Input
+{
+    command: 1,
+    name: ""
 }
 */
 
@@ -182,8 +249,48 @@ void check_srvstate(const int fd, const int isending){
 }
 */
 void get_pi(const int fd, const char* name){
-  //TODO: Implement get_pi
-  printf("{\"status\": 1, \"pis\": [1,2,3,4,5,6], \"length\": 6, \"user_sum\": 150, \"user_turn\': 3}\n");
+  child_t * achild;
+  int flag = childds_find_by_name(&achild, name);
+  if(flag == -1){
+    //TODO: Send -1 status because the user does not exist
+    return;
+  }
+
+  if(achild->state != SIGN_IN){
+    //TODO: Send -1 status because the user does not sign in
+    return;
+  }
+
+  // Check if the user still has turn
+  if((store.turn-achild->turn)<=0){
+    //TODO: Send -1 status because the user has no turn
+    return;
+  }
+
+  (achild->turn) += 1;
+
+  // Get pi
+  int bags[store.bag_size];
+  int pi_count = 0; 
+
+  while(pi_count<store.bag_size){
+    bags[pi_count] = getPi();
+    pi_count++;
+  }
+  
+  flag = add_pi_2child(name,bags,pi_count);
+  if(flag == -1){
+    fprintf(stderr, "Error happend while adding pi to child\n");
+    //TODO: Send -1 stats because operation error
+    return;
+  }
+
+  // Send back to the user
+  char sequence[MAX_CHAR];
+  print_iarray(sequence,MAX_CHAR,bags,0,pi_count-1);
+  
+  printf("{\"status\": %d, \"pis\": %s, \"length\": %d, \"user_sum\": %d, \"user_turn\': %d}\n",1, sequence, pi_count, achild->sum, achild->turn);
+
   return;
 }
 
@@ -312,23 +419,18 @@ int parse_request(const char* json, int * command, void**arg){
   return jstatus;
 }
 
-void* request_process(void*arg){
-  // FIXME: Remove init_child_ds after not being mocked
-  init_child_ds();
-  
+
+//MOCK: Change the argument from void*arg to const char* json
+void* request_process(const char* json){
   // 1. Argument is file descriptor.
   // int fd = *((int*)(arg));
 
   // 2. Receive request from the user
-  // MOCK: Mock request from the user
-  char buf[MAX_CHAR];
-  snprintf(buf, MAX_CHAR,"{\"command\": %d,\"is_ending\":%d}",2,0);
-
   int command = 0;
   void * fields;
   char * name;
 
-  int flag = parse_request(buf, &command, &fields);
+  int flag = parse_request(json, &command, &fields);
   if(flag == -1){
     fprintf(stderr, "Error happen while parse user request\n");
     return NULL;
@@ -378,68 +480,95 @@ void* request_process(void*arg){
   free(fields);
 
   // FIXME: Remove destroy_child_ds after not being mocked
-  destroy_child_ds();
+  
   return NULL;
   // 3. Parsing if it calls whatever functions.
   // 4. Delegating the response reponsible to that function with the fd and the input arguments.
 }
 
 
-// void init_app(){
-//   //Init store
-//   store_init(PI_NUM,RANGE_VALUE,SECTION_NUM,TURN,BAG_SIZE,CHILD_NUM);
-//   threadpool thpool = thpool_init(store.max_child);
-//   // int clt_cnt = 0;
-//   int *args = malloc(2*sizeof(int));
+void init_app(){
+  init_child_ds();
+
+  //Init store
+  store_init(PI_NUM,RANGE_VALUE,SECTION_NUM,TURN,BAG_SIZE,CHILD_NUM);
+  
+  
+  //SIGN IN USER
+  char buf[MAX_CHAR];
+  snprintf(buf, MAX_CHAR,"{\"command\": %d,\"name\":\"%s\"}",1,"Assasin123");
+  request_process(buf);
+
+  child_t * achild;
+  int flag = childds_find_by_name(&achild,"Assasin123");
+
+  //ADD Pi to user
+  snprintf(buf, MAX_CHAR,"{\"command\": %d,\"name\":\"%s\"}",3,"Assasin123");
+  for (int i = 0; i<10;i++){
+    request_process(buf);
+  }
+
+  // print_child(achild);
+  
   
 
-//   // Init listener
-//   //TODO: Number of client should be fixed
-//   /*  Input
-//   {
-//       command: 1,
-//       name: ""
-//   }
-//   */
 
-//   int ffd = inetListen(SERVICE, 10, NULL), cfd = 0;
-//   if (ffd == -1){
-//     printf("Could not create socket(%s)", strerror(errno));
-//     exit(-1);
-//   }
+  
 
-//   while (1){
-//     cfd = accept(ffd, NULL, NULL);
-//     if (cfd == -1){
-//       printf("Failure in accept(%s)\n", strerror(errno));
-//       exit(-1);
-//     }
+  
+  destroy_child_ds();
+  // threadpool thpool = thpool_init(store.max_child);
+  // // int clt_cnt = 0;
+  // int *args = malloc(2*sizeof(int));
+  
 
-//     args[0]=cfd;
-//     thpool_add_work(thpool, &request_process, (void*)args);
-//     // args[1] = clt_cnt;
+  // // Init listener
+  // //TODO: Number of client should be fixed
+  // /*  Input
+  // {
+  //     command: 1,
+  //     name: ""
+  // }
+  // */
 
-//     // clt_cnt ++;
-//     // if (clt_cnt > store.max_child){
-//     //   pthread_mutex_lock(&start_lock);
-//     //   is_full_slot = 1;
-//     //   printf("is_full_slot: %d\n", is_full_slot);
-//     //   pthread_mutex_unlock(&start_lock);
-//     //   pthread_cond_broadcast(&full);
-//     //   break;
-//     // } 
-//     // else {
-//     //   thpool_add_work(thpool, &collection_test, (void*)args);
-//     // }
-//   }
+  // int ffd = inetListen(SERVICE, 10, NULL), cfd = 0;
+  // if (ffd == -1){
+  //   printf("Could not create socket(%s)", strerror(errno));
+  //   exit(-1);
+  // }
 
-//   close(ffd);
-//   prepare_report();
-//   thpool_wait(thpool);
-// }
+  // while (1){
+  //   cfd = accept(ffd, NULL, NULL);
+  //   if (cfd == -1){
+  //     printf("Failure in accept(%s)\n", strerror(errno));
+  //     exit(-1);
+  //   }
+
+  //   args[0]=cfd;
+  //   thpool_add_work(thpool, &request_process, (void*)args);
+  //   // args[1] = clt_cnt;
+
+  //   // clt_cnt ++;
+  //   // if (clt_cnt > store.max_child){
+  //   //   pthread_mutex_lock(&start_lock);
+  //   //   is_full_slot = 1;
+  //   //   printf("is_full_slot: %d\n", is_full_slot);
+  //   //   pthread_mutex_unlock(&start_lock);
+  //   //   pthread_cond_broadcast(&full);
+  //   //   break;
+  //   // } 
+  //   // else {
+  //   //   thpool_add_work(thpool, &collection_test, (void*)args);
+  //   // }
+  // }
+
+  // close(ffd);
+  // prepare_report();
+  // thpool_wait(thpool);
+}
 
 
 int main(int argc, char *argv[]){
-  request_process(NULL);
+  init_app();
   return -1;
 }
