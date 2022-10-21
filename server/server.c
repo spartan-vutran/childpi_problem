@@ -29,7 +29,7 @@
 #define PI_NUM 200
 #define RANGE_VALUE 10
 #define TURN 5
-#define BAG_SIZE 50
+#define BAG_SIZE 20
 #define CHILD_NUM 5
 #define SECTION_NUM 10
 #define GET_PI_TIME_OUT 0.05
@@ -310,7 +310,13 @@ void get_pi(const int fd, const char* name){
 }
 */
 void get_winner(const int fd){
-  printf("{\"status\": %d, \"name\": \"%s\", \"sum\": %d}\n",1,"Hello",10);
+  child_t* winner = childds_find_winner();
+  if(winner == NULL){
+    //TODO: Send status = -1 to the user
+  }
+
+
+  printf("{\"status\": %d, \"name\": \"%s\", \"sum\": %d}\n",1,winner->name,winner->sum);
 }
 //
 
@@ -429,6 +435,7 @@ void* request_process(const char* json){
   int command = 0;
   void * fields;
   char * name;
+  int is_allocate = 1;
 
   int flag = parse_request(json, &command, &fields);
   if(flag == -1){
@@ -473,11 +480,12 @@ void* request_process(const char* json){
     case GET_WINNER:
 
       get_winner(0);
+      is_allocate = 0;
 
       break;   
   }
-
-  free(fields);
+  if(is_allocate)
+    free(fields);
 
   // FIXME: Remove destroy_child_ds after not being mocked
   
@@ -504,17 +512,20 @@ void init_app(){
 
   //ADD Pi to user
   snprintf(buf, MAX_CHAR,"{\"command\": %d,\"name\":\"%s\"}",3,"Assasin123");
-  for (int i = 0; i<10;i++){
+  for (int i = 0; i<2;i++){
     request_process(buf);
   }
 
-  // print_child(achild);
-  
-  
+  snprintf(buf, MAX_CHAR,"{\"command\": %d,\"name\":\"%s\"}",1,"Hello");
+  request_process(buf);
 
+  snprintf(buf, MAX_CHAR,"{\"command\": %d,\"name\":\"%s\"}",3,"Hello");
+  for (int i = 0; i<2;i++){
+    request_process(buf);
+  }
 
-  
-
+  snprintf(buf, MAX_CHAR,"{\"command\": %d}",4);
+  request_process(buf);
   
   destroy_child_ds();
   // threadpool thpool = thpool_init(store.max_child);
