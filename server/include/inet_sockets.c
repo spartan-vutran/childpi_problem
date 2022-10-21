@@ -175,8 +175,7 @@ inetBind(const char *service, int type, socklen_t *addrlen)
    also returned as the function result. The caller must specify the
    size of the 'addrStr' buffer in 'addrStrLen'. */
 
-char *
-inetAddressStr(const struct sockaddr *addr, socklen_t addrlen,
+char * inetAddressStr(const struct sockaddr *addr, socklen_t addrlen,
                char *addrStr, int addrStrLen)
 {
     char host[NI_MAXHOST], service[NI_MAXSERV];
